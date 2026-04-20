@@ -1,0 +1,76 @@
+[
+  {
+    "model": "auth.group",
+    "pk": 1,
+    "fields": {
+      "name": "Tenant Admin",
+      "permissions": []
+    }
+  },
+  {
+    "model": "auth.group",
+    "pk": 2,
+    "fields": {
+      "name": "Staff",
+      "permissions": []
+    }
+  },
+  {
+    "model": "auth.group",
+    "pk": 3,
+    "fields": {
+      "name": "Patient",
+      "permissions": []
+    }
+  },
+  {
+    "model": "auth.user",
+    "pk": 1,
+    "fields": {
+      "password": "pbkdf2_sha256$1200000$dYEniMLZ2k68ccVlSavzGf$yeTSRWxXqJaEGpRdIO+6u7BUYJN7zjVQw/j1421ygPw=",
+      "last_login": null,
+      "is_superuser": true,
+      "username": "raphaeljtorres",
+      "first_name": "Raphael",
+      "last_name": "Torres",
+      "email": "raphaeljtorres@gmail.com",
+      "is_staff": true,
+      "is_active": true,
+      "user_permissions": []
+    }
+  },
+  {
+    "model": "auth.user",
+    "pk": 2,
+    "fields": {
+      "password": "pbkdf2_sha256$1200000$dYEniMLZ2k68ccVlSavzGf$yeTSRWxXqJaEGpRdIO+6u7BUYJN7zjVQw/j1421ygPw=",
+      "last_login": null,
+      "is_superuser": false,
+      "username": "healthway.clinic",
+      "first_name": "Healthway Medical Clinic",
+      "last_name": "",
+      "email": "healthway.clinic@gmail.com",
+      "is_staff": true,
+      "is_active": true,
+      "groups": [1],
+      "user_permissions": []
+    }
+  },
+  {
+    "model": "auth.user",
+    "pk": 3,
+    "fields": {
+      "password": "pbkdf2_sha256$1200000$dYEniMLZ2k68ccVlSavzGf$yeTSRWxXqJaEGpRdIO+6u7BUYJN7zjVQw/j1421ygPw=",
+      "last_login": null,
+      "is_superuser": false,
+      "username": "tokyo.clinic",
+      "first_name": "Tokyo Healthlink",
+      "last_name": "",
+      "email": "tokyo.clinic@gmail.com",
+      "is_staff": true,
+      "is_active": true,
+      "groups": [1],
+      "user_permissions": []
+    }
+  }
+]
