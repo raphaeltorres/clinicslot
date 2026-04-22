@@ -164,16 +164,7 @@ class PatientViewSet(
         request=PatientUpdateSerializer,
         responses=PatientUpdateSerializer,
         description="Update a patient's information."
-    )
-    # def update(self, request, *args, **kwargs):
-    #     instance = self.get_object()
-    #     serializer = self.get_serializer(instance, data=request.data, context={'request': request})
-    #     if serializer.is_valid():
-    #         serializer.save()
-    #         return Response(serializer.data)
-    #     else:
-    #         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
+    )    
     def update(self, request, *args, **kwargs):
         queryset = self.get_queryset()
         instance = queryset.get(pk=kwargs["pk"])
@@ -391,7 +382,7 @@ class PublicPatientBookingStatusViewSet(mixins.UpdateModelMixin, viewsets.Generi
     authentication_classes = []
     permission_classes = []
 
-    def get_booking_from_token(self):
+    def get_booking_from_token(self, update=False):
         token = self.request.query_params.get('token')
         if not token:
             raise ValidationError({"token": "Token required"})
@@ -405,7 +396,10 @@ class PublicPatientBookingStatusViewSet(mixins.UpdateModelMixin, viewsets.Generi
             raise ValidationError({"token": "Invalid token"})
 
         try:
-            booking = PatientBooking.objects.select_related('booking_date', 'patient').get(pk=booking_id)
+            queryset = PatientBooking.objects.select_related('booking_date', 'patient')
+            if update:
+                queryset = queryset.select_for_update()
+            booking = queryset.get(pk=booking_id)
         except PatientBooking.DoesNotExist:
             raise NotFound("Booking not found")
 
@@ -415,12 +409,9 @@ class PublicPatientBookingStatusViewSet(mixins.UpdateModelMixin, viewsets.Generi
 
         return booking
 
-    def get_object(self):
-        return self.get_booking_from_token()
-
     # Optional GET endpoint to fetch booking info
     def retrieve(self, request, *args, **kwargs):
-        booking = self.get_booking_from_token()
+        booking = self.get_booking_from_token(update=False)
         booking_date = f"{booking.booking_date.booking_start.strftime('%Y-%m-%d %H:%M')}-{booking.booking_date.booking_end.strftime('%H:%M%p')}"
         return Response({
             "patient": booking.patient.user.get_full_name(),
@@ -450,21 +441,22 @@ class PublicPatientBookingStatusViewSet(mixins.UpdateModelMixin, viewsets.Generi
         booking.booking_date.save()
 
     def perform_update(self, serializer):
-        booking = self.get_object()
-        action = serializer.validated_data.get('action')
-        reason = serializer.validated_data.get('reason', '')
+        with transaction.atomic():
+            booking = self.get_booking_from_token(update=True)
+            action = serializer.validated_data.get('action')
+            reason = serializer.validated_data.get('reason', '')
 
-        if action == 'cancel':
-            booking.status = 'cancelled'
-            booking.reason = reason
-            self.make_booking_available(booking)
-            booking.save()
-        elif action == 'reschedule':
-            rescheduled_date = serializer.validated_data.get('booking_date')
-            self.make_booking_available(booking)
-            booking.booking_date = rescheduled_date
-            booking.reason = reason
-            booking.status = 'rescheduled'
-            booking.save()
-
-        return booking
+            if action == 'cancel':
+                booking.status = 'cancelled'
+                booking.reason = reason
+                self.make_booking_available(booking)
+                booking.save()
+            elif action == 'reschedule':
+                rescheduled_date = serializer.validated_data.get('booking_date')
+                self.make_booking_available(booking)
+                booking.booking_date = rescheduled_date
+                booking.reason = reason
+                booking.status = 'rescheduled'
+                booking.save()
+            
+            return booking

@@ -444,6 +444,15 @@ class BookingSchedulesSerializer(serializers.ModelSerializer):
         instance.is_deleted = validated_data.get('is_deleted', instance.is_deleted)
         instance.save()
         return instance
+    
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data['booked'] = PatientBooking.objects.filter(
+            booking_date=instance,
+            status__in=['pending', 'confirmed']
+        ).exists()
+
+        return data
 
 
 class ConfirmRejectSerializer(serializers.ModelSerializer):
@@ -453,16 +462,13 @@ class ConfirmRejectSerializer(serializers.ModelSerializer):
         fields = ['id', 'notes', 'status']
 
     def update(self, instance, validated_data):
-        signer = signing.TimestampSigner()
         instance.status = validated_data.get('status', instance.status)
         instance.notes = validated_data.get('notes', instance.notes)
         if validated_data.get('status') == 'confirmed':
             instance.booking_date.status = False
-            instance.booking_date.save()
-            instance.save()
         elif validated_data.get('status') == 'rejected':
             instance.booking_date.status = True
-            instance.save()
+        instance.save(update_fields=['status', 'notes'])
         return instance
     
     def to_representation(self, instance):
