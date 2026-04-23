@@ -1,8 +1,12 @@
 from rest_framework import serializers
+from .tasks import send_patient_invite
+from django.conf import settings
 from .models import Patient, TenantStaff, BookingSchedules, PatientBooking
 from django.db.models import Count, Q
 from django.contrib.auth.models import User, Group, Permission
 from django.core import signing
+from django.db import transaction
+from urllib.parse import quote
 
 ALLOWED_PERMISSIONS = [
     "blocks_read",
@@ -146,6 +150,52 @@ class TenantUserSerializer(serializers.ModelSerializer):
         instance.save()
         return instance
     
+class PatientUserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['id', 'email', 'first_name', 'last_name',]
+        extra_kwargs = {
+            'password': {'write_only': True, 'required': False},
+            'username': {'required': False},
+        }
+
+    def validate_user_permissions(self, perms):
+        allowed = Permission.objects.filter(codename__in=PATIENT_ALLOWED_PERMISSIONS)
+
+        for perm in perms:
+            if perm not in allowed:
+                raise serializers.ValidationError("Invalid permission")
+        return perms
+
+    def create(self, validated_data):
+        user_permissions = validated_data.pop('user_permissions', [])
+
+        password = validated_data.pop('password')
+        validated_data['username'] = validated_data['email']
+        user = User.objects.create(**validated_data)
+
+        user.set_password(password)
+        user.save()
+
+        if user_permissions:
+            user.user_permissions.set(user_permissions)
+
+        return user
+    
+    def update(self, instance, validated_data):
+        instance.email = validated_data.get('email', instance.email)
+        instance.first_name = validated_data.get('first_name', instance.first_name)
+        instance.last_name = validated_data.get('last_name', instance.last_name)
+
+        if 'password' in validated_data:
+            instance.set_password(validated_data['password'])
+
+        if 'user_permissions' in validated_data:
+            instance.user_permissions.set(validated_data['user_permissions'])
+
+        instance.save()
+        return instance
+    
 class PatientBookingSerializer(serializers.ModelSerializer):
     class Meta:
         model = PatientBooking
@@ -242,13 +292,13 @@ class PatientBookingSerializer(serializers.ModelSerializer):
         }
     
 class PatientSerializer(serializers.ModelSerializer):
-    user = TenantUserSerializer(read_only=False)
+    user = PatientUserSerializer(read_only=False)
     patient_bookings = PatientBookingSerializer(many=True, read_only=True)
-    permissions = PermissionField(
-        queryset=Permission.objects.filter(codename__in=PATIENT_ALLOWED_PERMISSIONS),
-        many=True,
-        required=False
-    )
+    # permissions = PermissionField(
+    #     queryset=Permission.objects.filter(codename__in=PATIENT_ALLOWED_PERMISSIONS),
+    #     many=True,
+    #     required=False
+    # )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -262,16 +312,17 @@ class PatientSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Patient
-        fields = ['id', 'user', 'address', 'phone_number', 'patient_bookings', 'permissions']
+        fields = ['id', 'user', 'address', 'phone_number', 'patient_bookings']
 
     def create(self, validated_data):
         request = self.context.get('request')
 
         user_data = validated_data.pop('user')
+        user_data['password'] = 'defaultpassword123'  # Set a default password or generate one
         user_data['user_permissions'] = validated_data.pop('permissions', [])
-        user = TenantUserSerializer().create(user_data)
+        user = PatientUserSerializer().create(user_data)
 
-        user.is_active = True
+        user.is_active = False
         user.is_staff = False
         user.save()
 
@@ -287,6 +338,13 @@ class PatientSerializer(serializers.ModelSerializer):
         patient = Patient.objects.create(user=user, **validated_data)
         patient.token = signing.TimestampSigner().sign(patient.id)
         patient.save()
+
+        transaction.on_commit(lambda: send_patient_invite.delay(
+            email=user.email,
+            tenant_email=patient.tenant.email,
+            tenant_name=patient.tenant.get_full_name() or patient.tenant.first_name,
+            invite_link=f"{settings.SITE_DOMAIN}/api/public/booking-request/?token={quote(patient.token)}"
+        ))
 
         return patient
     
@@ -310,7 +368,7 @@ class PatientSerializer(serializers.ModelSerializer):
             'groups': group_name,
             'date_created': instance.date_created,
             'patient_bookings': patient_bookings,
-            'permissions': [perm.codename for perm in instance.user.user_permissions.all()]
+            # 'permissions': [perm.codename for perm in instance.user.user_permissions.all()]
         }
 
 
@@ -611,12 +669,42 @@ class PublicPatientBookingCreateSerializer(serializers.ModelSerializer):
         model = PatientBooking
         fields = ['booking_date', 'description']
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        patient = self.context.get('patient')
+
+        if patient:
+            self.fields['booking_date'].queryset = (
+                BookingSchedules.objects
+                .filter(tenant=patient.tenant)
+                .annotate(
+                    booking_count=Count(
+                        "patient_booking",
+                        filter=~Q(
+                            patient_booking__status__in=[
+                                PatientBooking.StatusChoices.CANCELLED,
+                                PatientBooking.StatusChoices.REJECTED,
+                            ]
+                        ),
+                    )
+                )
+                .filter(
+                    booking_count=0,
+                    status=True,
+                )
+                .order_by("booking_start")
+            )
+
     def validate(self, attrs):
         patient = self.context.get('patient')
         booking_date = attrs.get('booking_date')
 
         if not patient:
             raise serializers.ValidationError("Invalid patient.")
+
+        if booking_date.tenant != patient.tenant:
+            raise serializers.ValidationError("Invalid booking schedule.")
 
         # Prevent duplicate active booking
         exists = PatientBooking.objects.filter(

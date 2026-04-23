@@ -123,6 +123,7 @@ class PatientBooking(models.Model):
             ("requests_reschedule", "Can reschedule booking requests"),
         ]
 
+
 @receiver(models.signals.post_save, sender=PatientBooking)
 def send_booking_status_email(sender, instance, created, *args, **kwargs):
     if created:

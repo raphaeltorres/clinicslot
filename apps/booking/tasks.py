@@ -34,3 +34,16 @@ def send_patient_link(email, tenant_email, status, reference_number, boooking_da
         [email],
         fail_silently=True,
     )
+
+@shared_task
+def send_patient_invite(email, tenant_email, tenant_name, invite_link):
+    subject = f"You're invited to join {tenant_name} on ClinicSlot!"
+    message = f"You've been invited to join {tenant_name} on ClinicSlot. Please click the link below to set up your account and start booking appointments:\n\n{invite_link}"
+
+    send_mail(
+        subject,
+        message,
+        tenant_email,
+        [email],
+        fail_silently=True,
+    )

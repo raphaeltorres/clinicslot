@@ -263,6 +263,7 @@ class PatientBookingViewSet(
 class ConfirmRejectViewSet(
         mixins.UpdateModelMixin,
         mixins.RetrieveModelMixin,
+        mixins.ListModelMixin,
         viewsets.GenericViewSet
     ):
     """
@@ -275,6 +276,7 @@ class ConfirmRejectViewSet(
 
     permission_map = {
         "retrieve": "booking.blocks_read",
+        "list": "booking.blocks_read",
         "update": [
             "booking.requests_confirm",
             "booking.requests_reject",
@@ -438,7 +440,7 @@ class PublicPatientBookingStatusViewSet(mixins.UpdateModelMixin, viewsets.Generi
         return booking
 
     # Optional GET endpoint to fetch booking info
-    def retrieve(self):
+    def retrieve(self, request, *args, **kwargs):
         booking = self.get_booking_from_token(update=False)
         booking_date = f"{booking.booking_date.booking_start.strftime('%Y-%m-%d %H:%M')}-{booking.booking_date.booking_end.strftime('%H:%M%p')}"
         return Response({
@@ -450,7 +452,7 @@ class PublicPatientBookingStatusViewSet(mixins.UpdateModelMixin, viewsets.Generi
             "booking_date": booking_date,
         })
     
-    def update(self, request):
+    def update(self, request, *args, **kwargs):
         serializer = PublicPatientBookingUpdateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         booking = self.perform_update(serializer)
