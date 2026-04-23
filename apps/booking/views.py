@@ -476,6 +476,9 @@ class PublicPatientBookingStatusViewSet(mixins.UpdateModelMixin, viewsets.Generi
             action = serializer.validated_data.get('action')
             reason = serializer.validated_data.get('reason', '')
 
+            if action.lower() == 'reschedule' and booking.status != 'confirmed':
+                raise ValidationError({"action": "Only confirmed bookings can be rescheduled."})
+
             if action == 'cancel':
                 booking.status = 'cancelled'
                 booking.reason = reason
