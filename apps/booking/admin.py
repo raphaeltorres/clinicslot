@@ -28,6 +28,6 @@ class TenantStaffAdmin(admin.ModelAdmin):
 
 @admin.register(BookingSchedules)
 class BookingSchedulesAdmin(admin.ModelAdmin):
-    list_display = ['id', 'booking_start', 'booking_end', 'status', 'date_created', 'tenant__username']
+    list_display = ['id', 'tenant__username', 'booking_start', 'booking_end', 'status', 'date_created', 'is_deleted']
     search_fields = ['status']
-    list_filter = ['status', 'booking_start']
+    list_filter = ['status', 'booking_start', 'is_deleted']

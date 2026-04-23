@@ -50,10 +50,76 @@
       "first_name": "Healthway Medical Clinic",
       "last_name": "",
       "email": "healthway.clinic@gmail.com",
-      "is_staff": true,
+      "is_staff": false,
       "is_active": true,
       "groups": [1],
-      "user_permissions": []
+      "user_permissions": [
+            [
+                "schedule_delete",
+                "booking",
+                "bookingschedules"
+            ],
+            [
+                "schedule_read",
+                "booking",
+                "bookingschedules"
+            ],
+            [
+                "schedule_update",
+                "booking",
+                "bookingschedules"
+            ],
+            [
+                "schedule_write",
+                "booking",
+                "bookingschedules"
+            ],
+            [
+                "patient_edit",
+                "booking",
+                "patient"
+            ],
+            [
+                "patient_invite",
+                "booking",
+                "patient"
+            ],
+            [
+                "patient_view",
+                "booking",
+                "patient"
+            ],
+            [
+                "blocks_read",
+                "booking",
+                "patientbooking"
+            ],
+            [
+                "blocks_write",
+                "booking",
+                "patientbooking"
+            ],
+            [
+                "requests_cancel",
+                "booking",
+                "patientbooking"
+            ],
+            [
+                "requests_confirm",
+                "booking",
+                "patientbooking"
+            ],
+            [
+                "requests_reject",
+                "booking",
+                "patientbooking"
+            ],
+            [
+                "requests_reschedule",
+                "booking",
+                "patientbooking"
+            ]
+        ]
     }
   },
   {
@@ -67,10 +133,76 @@
       "first_name": "Tokyo Healthlink",
       "last_name": "",
       "email": "tokyo.clinic@gmail.com",
-      "is_staff": true,
+      "is_staff": false,
       "is_active": true,
       "groups": [1],
-      "user_permissions": []
+      "user_permissions": [
+            [
+                "schedule_delete",
+                "booking",
+                "bookingschedules"
+            ],
+            [
+                "schedule_read",
+                "booking",
+                "bookingschedules"
+            ],
+            [
+                "schedule_update",
+                "booking",
+                "bookingschedules"
+            ],
+            [
+                "schedule_write",
+                "booking",
+                "bookingschedules"
+            ],
+            [
+                "patient_edit",
+                "booking",
+                "patient"
+            ],
+            [
+                "patient_invite",
+                "booking",
+                "patient"
+            ],
+            [
+                "patient_view",
+                "booking",
+                "patient"
+            ],
+            [
+                "blocks_read",
+                "booking",
+                "patientbooking"
+            ],
+            [
+                "blocks_write",
+                "booking",
+                "patientbooking"
+            ],
+            [
+                "requests_cancel",
+                "booking",
+                "patientbooking"
+            ],
+            [
+                "requests_confirm",
+                "booking",
+                "patientbooking"
+            ],
+            [
+                "requests_reject",
+                "booking",
+                "patientbooking"
+            ],
+            [
+                "requests_reschedule",
+                "booking",
+                "patientbooking"
+            ]
+        ]
     }
   }
 ]

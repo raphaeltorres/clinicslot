@@ -309,7 +309,8 @@ class BookingSchedulesViewSet(
         mixins.ListModelMixin,
         mixins.CreateModelMixin, 
         mixins.UpdateModelMixin,
-        mixins.RetrieveModelMixin, 
+        mixins.RetrieveModelMixin,
+        mixins.DestroyModelMixin,
         viewsets.GenericViewSet
     ):
     """
@@ -318,22 +319,25 @@ class BookingSchedulesViewSet(
     """
     queryset = BookingSchedules.objects.none()
     serializer_class = BookingSchedulesSerializer
-    permission_classes = [IsAuthenticated, IsAdminUser]
+    permission_classes = [IsAuthenticated, ClinicPermission]
 
     permission_map = {
-        "list": "booking.blocks_read",
-        "retrieve": "booking.blocks_read",
-        "create": "booking.blocks_write",
-        "update": "booking.blocks_write",
-        "partial_update": "booking.blocks_write",
+        "list": "booking.schedule_read",
+        "retrieve": "booking.schedule_read",
+        "create": "booking.schedule_write",
+        "update": "booking.schedule_update",
+        "partial_update": "booking.schedule_update",
+        "destroy": "booking.schedule_delete",
     }
 
     def get_queryset(self):
-        return BookingSchedules.objects.for_user(self.request.user)
+        return BookingSchedules.objects.for_user(self.request.user).select_related('tenant')
     
     @extend_schema(summary="List booking schedules",responses=BookingSchedulesSerializer(many=True))
     def list(self, request, *args, **kwargs):
-        return super().list(request, *args, **kwargs)
+        instance = self.get_queryset().filter(is_deleted=False)
+        serializer = self.get_serializer(instance, many=True)
+        return Response(serializer.data)
     
     @extend_schema(
         summary="Create booking schedule",
@@ -342,6 +346,30 @@ class BookingSchedulesViewSet(
     )   
     def create(self, request, *args, **kwargs):
         return super().create(request, *args, **kwargs)
+    
+    @transaction.atomic
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        instance = BookingSchedules.objects.select_for_update().get(pk=instance.pk)
+
+        if instance.is_deleted:
+            return Response({"detail": "Schedule already deleted."}, status=status.HTTP_400_BAD_REQUEST)
+
+        if instance.patient_booking.filter(
+            status__in=['pending', 'confirmed']
+        ).exists():
+            return Response(
+                {"detail": "Cannot delete a booked schedule."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        instance.is_deleted = True
+        instance.status = False  # Mark schedule as unavailable
+        instance.save(update_fields=['is_deleted', 'status'])
+
+        serailizer = self.get_serializer(instance)
+        return Response(serailizer.data, status=status.HTTP_200_OK)
+
     
 class PublicPatientBookingRequestViewSet(mixins.CreateModelMixin,viewsets.GenericViewSet):
     authentication_classes = []
@@ -410,7 +438,7 @@ class PublicPatientBookingStatusViewSet(mixins.UpdateModelMixin, viewsets.Generi
         return booking
 
     # Optional GET endpoint to fetch booking info
-    def retrieve(self, request, *args, **kwargs):
+    def retrieve(self):
         booking = self.get_booking_from_token(update=False)
         booking_date = f"{booking.booking_date.booking_start.strftime('%Y-%m-%d %H:%M')}-{booking.booking_date.booking_end.strftime('%H:%M%p')}"
         return Response({
@@ -422,7 +450,7 @@ class PublicPatientBookingStatusViewSet(mixins.UpdateModelMixin, viewsets.Generi
             "booking_date": booking_date,
         })
     
-    def update(self, request, *args, **kwargs):
+    def update(self, request):
         serializer = PublicPatientBookingUpdateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         booking = self.perform_update(serializer)

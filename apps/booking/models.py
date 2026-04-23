@@ -8,6 +8,7 @@ from apps.booking.managers.patient_queryset import PatientQuerySet
 from apps.booking.managers.patient_booking_queryset import PatientBookingQuerySet
 from apps.booking.managers.booking_schedule_queryset import BookingScheduleQuerySet
 from django.core.signing import TimestampSigner
+from django.db.models import Q, UniqueConstraint
 
 # Create your models here.
 class Patient(models.Model):
@@ -67,9 +68,21 @@ class BookingSchedules(models.Model):
         db_table = "patient_schedules"
         get_latest_by = 'date_created'
         ordering = ['date_created']
-        unique_together = ('booking_start', 'booking_end', 'tenant')
+        constraints = [
+            UniqueConstraint(
+                fields=['booking_start', 'booking_end', 'tenant'],
+                condition=Q(is_deleted=False),
+                name='unique_active_booking_schedule'
+            )
+        ]
         indexes = [
             models.Index(fields=["status", "booking_start"]),
+        ]
+        permissions = [
+            ("schedule_read", "Can read or view booking schedules"),
+            ("schedule_write", "Can create/update booking schedules"),
+            ("schedule_update", "Can confirm booking requests"),
+            ("schedule_delete", "Can reject booking requests"),
         ]
 
 class PatientBooking(models.Model):

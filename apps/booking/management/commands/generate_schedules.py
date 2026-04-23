@@ -42,7 +42,8 @@ class Command(BaseCommand):
             exists = BookingSchedules.objects.filter(
                 booking_start=current_start,
                 booking_end=current_end,
-                tenant=tenant
+                tenant=tenant,
+                is_deleted=False
             ).exists()
 
             if not exists:
